@@ -14,6 +14,9 @@
 #include "Utilities/FastString.h"
 #include "Utilities/magic_enum.hpp"
 
+#include <iostream>
+#include <string>
+
 #define logError(y) MessageManager::Log("[HDPack - Line " + std::to_string(_currentLine) + "] " + (y)); _errorCount++;
 #define checkConstraint(x, y) if(!(x)) { logError(y); return; }
 #define checkConstraintEx(x, y) if(_data->Version >= 109) { checkConstraint(x, y); } else { if(!(x)) { logError(y); } }
@@ -78,6 +81,8 @@ bool HdPackLoader::CheckFile(string filename)
 bool HdPackLoader::LoadFile(string filename, vector<uint8_t> &fileData)
 {
 	fileData.clear();
+
+	
 
 	if(_loadFromZip) {
 		if(_reader.ExtractFile(filename, fileData)) {
@@ -149,6 +154,9 @@ bool HdPackLoader::LoadPack()
 			}
 
 			vector<string> tokens;
+
+			int conditional_bgm_counter = 0;
+
 			if(lineContent.substr(0, 6) == "<tile>") {
 				tokens = StringUtilities::Split(lineContent.substr(6), ',');
 				ProcessTileTag(tokens, conditions);
@@ -199,6 +207,26 @@ bool HdPackLoader::LoadPack()
 				tokens = StringUtilities::Split(lineContent.substr(9), ',');
 				ProcessOptionTag(tokens);
 			}
+			 
+			  else if(lineContent.substr(0, 22) == "<play_conditional_bgm>") {
+							
+				//logfile << lineContent  << std::endl;
+				//logfile.flush();				
+
+				tokens = StringUtilities::Split(lineContent.substr(22), ',');
+				ProcessPlayConditionalBgmTag(tokens, conditions);
+			}
+			  else if(lineContent.substr(0, 22) == "<play_conditional_sfx>") {
+				tokens = StringUtilities::Split(lineContent.substr(22), ',');
+				ProcessPlayConditionalSfxTag(tokens, conditions);
+			}	
+			  else if(lineContent.substr(0, 21) == "<disable_8bits_Sound>") {
+				//tokens = StringUtilities::Split(lineContent.substr(21), ',');
+				_data-> _disable_8bits_Sound = true;
+
+
+			}
+
 		}
 
 		LoadCustomPalette();
@@ -211,12 +239,126 @@ bool HdPackLoader::LoadPack()
 			MessageManager::Log("[HDPack] Loaded with " + std::to_string(_errorCount) + " errors");
 		}
 
+		
+		std::ofstream logfile("D:\\Documents\\Mesen2\\HdPacks\\LegendofZelda_MESEN_Patch\\ProcessPlayConditionalSfxTagLog.txt", std::ios_base::trunc);
+		
+		logfile << " _data->SfxFilesById.size(): " << _data->SfxFilesById.size() << std::endl;
+		int j =0 ;
+
+		for(auto& pair : _data->SfxFilesById) {
+			int id = pair.first;
+			const std::string& path = pair.second;
+			logfile << "          SFX ID: " << pair.first << " => " << pair.second << std::endl;
+		}
+
+		// log additionalSFX tags
+		logfile <<  std::endl;
+		logfile << "_data->PlayAdditionalSfxActions.size() : " << _data->PlayAdditionalSfxActions.size() << std::endl << std::endl;
+
+		int i = 0;
+		for(auto& action : _data->PlayAdditionalSfxActions) {
+				logfile << "          -- SFXtrackID : " << _data->PlayAdditionalSfxActions[i].SfxId << " condition : " << _data->PlayAdditionalSfxActions[i].Conditions[0]->ToString() << std::endl;
+				i++;
+		   	logfile.flush();
+			   
+		}
+		logfile.close();
+		// end logs
+
 		return true;
 	} catch(std::exception &ex) {
 		logError(string("Error: ") + ex.what() + " on line: " + lineContent);
 		return false;
 	}
 }
+
+/*-------------Added by Gwenolo ----------------------*/
+void HdPackLoader::ProcessPlayConditionalBgmTag(vector<string>& tokens, vector<HdPackCondition*>& conditions)
+{
+	checkConstraint(tokens.size() >= 2, "PlayAdditionalBgm tag should contain at least 2 parameters");
+
+	//std::ofstream logfile("D:\\Documents\\Mesen2\\HdPacks\\LegendofZelda_MESEN_Patch\\ProcessPlayConditionalBgmTagLog.txt", std::ios_base::trunc);
+	//logfile << "ProcessPlayConditionalBgmTag - " << tokens[0] << " - " << tokens[1] << std::endl;
+
+	int album = std::stoi(tokens[0]);
+	int track = std::stoi(tokens[1]);
+	int trackId = album * 256 + track;
+
+	PlayAdditionalBgmAction action = {};
+	action.Conditions = conditions;
+	action.TrackId = trackId;
+	action.loop = true;
+
+	if(tokens.size() > 2) {
+		if ((uint32_t)std::stoul(tokens[2])==0  )
+		action.loop = false;
+	}
+
+	_data->PlayAdditionalBgmActions.push_back(action);
+
+	for(HdPackCondition* condition : conditions) {
+		switch(condition->GetConditionType()) {
+			case HdPackConditionType::TileAtPos:
+			case HdPackConditionType::SpriteAtPos:
+			case HdPackConditionType::MemoryCheck:
+			case HdPackConditionType::MemoryCheckConstant:
+			case HdPackConditionType::FrameRange:
+				action.Conditions.push_back(condition);
+				break;
+
+			default:
+				logError("Invalid condition type forPlayAdditionalBgm: " + tokens[0]);
+				break;
+		}
+
+		/*logfile << "Vector Size  : _data->PlayAdditionalBgmActions" << _data->PlayAdditionalBgmActions.size() << std::endl << std::endl;
+
+		int i = 0;
+		if(_data->PlayAdditionalBgmActions.size() == 3) {
+			for(auto& action : _data->PlayAdditionalBgmActions) {
+				logfile << "          -- BGM trackID : " << _data->PlayAdditionalBgmActions[i].TrackId << " condition : " << _data->PlayAdditionalBgmActions[i].Conditions[0]->ToString() << std::endl;
+				i++;
+			}
+			
+			logfile.flush();
+			logfile.close();
+		}
+		*/
+	}
+
+}
+/*------------------------------------------------------------------------------------------------------------*/
+void HdPackLoader::ProcessPlayConditionalSfxTag(vector<string>& tokens, vector<HdPackCondition*>& conditions)
+{
+	checkConstraint(tokens.size() >= 2, "PlayAdditionalSfx tag should contain at least 2 parameters");	
+
+	int album = std::stoi(tokens[0]);
+	int track = std::stoi(tokens[1]);
+	int trackId = album * 256 + track;
+
+	PlayAdditionalSfxAction action = {};
+	action.Conditions = conditions;
+	action.SfxId = trackId;
+
+	_data->PlayAdditionalSfxActions.push_back(action);
+
+	for(HdPackCondition* condition : conditions) {
+		switch(condition->GetConditionType()) {
+			case HdPackConditionType::TileAtPos:
+			case HdPackConditionType::SpriteAtPos:
+			case HdPackConditionType::MemoryCheck:
+			case HdPackConditionType::MemoryCheckConstant:
+			case HdPackConditionType::FrameRange:
+				action.Conditions.push_back(condition);
+				break;
+
+			default:
+				logError("Invalid condition type for PlayAdditionalSfx: " + tokens[0]);
+				break;
+		}
+	}
+}
+/*-----------------------------------------------------------------------------------------------------------*/
 
 bool HdPackLoader::ProcessImgTag(string src)
 {
@@ -494,7 +636,8 @@ void HdPackLoader::ProcessConditionTag(vector<string> &tokens, bool createInvert
 		}
 
 		case HdPackConditionType::MemoryCheck:
-		case HdPackConditionType::MemoryCheckConstant: {
+		case HdPackConditionType::MemoryCheckConstant:
+		{
 			checkConstraint(_data->Version >= 101, "This feature requires version 101+ of HD Packs");
 			checkConstraint(tokens.size() >= 5, "Condition tag should contain at least 5 parameters");
 			checkConstraintEx(tokens.size() < 7, "Condition tag contains too many parameters");
@@ -511,13 +654,66 @@ void HdPackLoader::ProcessConditionTag(vector<string> &tokens, bool createInvert
 
 			HdPackConditionOperator op = ParseConditionOperator(tokens[index++]);
 			checkConstraint(op != HdPackConditionOperator::Invalid, "Invalid operator.");
-			
-			uint32_t operandB = HexUtilities::FromHex(tokens[index++]);
+
+
 			uint32_t mask = 0xFF;
+			string operandBListStr = "";
+
+			// modification by Gwenolo
+			uint32_t operandB = -1;
+			bool In_operator_and_multiple_values_for_operandB = false;
+
+			if(op != HdPackConditionOperator::In) {
+				operandB = HexUtilities::FromHex(tokens[index++]);
+			} else { //Operator == IN
+				operandBListStr = tokens[index++];
+				if(operandBListStr.find('|') != std::string::npos)  //contains '|'
+				{
+					In_operator_and_multiple_values_for_operandB = true;
+
+				} else {// does not contain '|' : In is equivalent to Equal operator as it will be compared to one unique value
+					operandB = HexUtilities::FromHex(operandBListStr);
+					op = HdPackConditionOperator::Equal;
+
+				}
+			}
+
+
+			//End of modification by Gwenolo : back to std Code
 			if(tokens.size() > 5 && _data->Version >= 103) {
 				checkConstraint(operandB <= 0xFF, "Out of range memoryCheck mask");
 				mask = HexUtilities::FromHex(tokens[index++]);
 			}
+
+
+			//Modified by Gwenolo
+			/*if(op == HdPackConditionOperator::In) {
+				//checkConstraint(_data->Version >= 109, "The 'In' operator requires HD Pack version 109+");
+				checkConstraint(tokens.size() >= 5, "Missing operand list for 'In' operator");
+
+				string operandBListStr = tokens[index++]; // e.g. "03|05|0A"
+
+				if(tokens.size() > index && _data->Version >= 103) {
+					mask = HexUtilities::FromHex(tokens[index++]);
+				}
+
+				if(condition->GetConditionType() == HdPackConditionType::MemoryCheckConstant) {
+					((HdPackMemoryCheckConstantCondition*)condition.get())->Initialize(operandA, op, operandBListStr, (uint8_t)mask);
+				} else {
+					logError("Operator 'In' is not supported with memoryCheck (only memoryCheckConstant)");
+					return;
+				}
+			} else {
+				uint32_t operandB = HexUtilities::FromHex(tokens[index++]);
+			}
+
+			if(tokens.size() > index && _data->Version >= 103) {
+					mask = HexUtilities::FromHex(tokens[index++]);
+			}
+			*/
+			// end of Modification by Gwenolo
+
+
 
 			switch(condition->GetConditionType()) {
 				case HdPackConditionType::MemoryCheck:
@@ -531,12 +727,20 @@ void HdPackLoader::ProcessConditionTag(vector<string> &tokens, bool createInvert
 					break;
 
 				case HdPackConditionType::MemoryCheckConstant:
-					checkConstraint(operandB <= 0xFF, "Out of range memoryCheckConstant operand");
+				{
+					if(!In_operator_and_multiple_values_for_operandB)	checkConstraint(operandB <= 0xFF, "Out of range memoryCheckConstant operand");
 					break;
+				}
 			}
 
 			_data->WatchedMemoryAddresses.emplace(operandA);
-			((HdPackBaseMemoryCondition*)condition.get())->Initialize(operandA, op, operandB, (uint8_t)mask);
+
+			if(!In_operator_and_multiple_values_for_operandB) {
+			     ((HdPackBaseMemoryCondition*)condition.get())->Initialize(operandA, op, operandB, (uint8_t)mask);
+		   }
+			else {
+				((HdPackMemoryCheckConstantCondition*)condition.get())->InitializeForInOperator(operandA, op, operandBListStr, (uint8_t)mask);
+			}
 			break;
 		}
 
@@ -602,7 +806,12 @@ HdPackConditionOperator HdPackLoader::ParseConditionOperator(string& opString)
 		return HdPackConditionOperator::LowerThanOrEqual;
 	} else if(opString == ">=") {
 		return HdPackConditionOperator::GreaterThanOrEqual;
+	} 
+	//added by Gwenolo
+	else if(opString == "In" or opString == "IN" or opString == "in") {
+		return HdPackConditionOperator::In;
 	}
+
 	return HdPackConditionOperator::Invalid;
 }
 
@@ -749,6 +958,10 @@ int HdPackLoader::ProcessSoundTrack(string albumString, string trackString, stri
 
 	return album * 256 + track;
 }
+
+
+
+
 
 void HdPackLoader::ProcessBgmTag(vector<string> &tokens)
 {

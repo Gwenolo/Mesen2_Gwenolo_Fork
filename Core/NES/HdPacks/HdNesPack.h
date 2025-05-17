@@ -5,6 +5,8 @@
 class NesConsole;
 class EmuSettings;
 
+
+
 class BaseHdNesPack
 {
 protected:
@@ -96,6 +98,9 @@ private:
 	
 	void CleanupInvalidRules();
 	void InitializeFallbackTiles();
+
+	/* Added by Gwenolo */
+	void disable_8bitsSound();
 
 public:
 	HdNesPack(NesConsole* console, EmuSettings* settings, HdPackData* hdData);

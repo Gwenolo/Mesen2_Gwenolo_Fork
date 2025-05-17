@@ -290,6 +290,26 @@ void NesConsole::RunFrame()
 		//Re-update timings to allow overclocking
 		_ppu->UpdateTimings(_region, true);
 	}
+
+
+	// Gwenolo -----------------------------------
+	//checking if it's usefull to check and play additionalBgms
+	if(_hdAudioDevice != nullptr) {
+		//logs for debug 
+		//_hdAudioDevice->Log_TrackId_For_First_AdditionalBgm_Conds_Met("D:\\Documents\\Mesen2\\HdPacks\\LegendofZelda_MESEN_Patch\\Log_TrackId_For_First_AdditionalBgm_Conds_Met.txt", _hdAudioDevice->_hdData);
+
+		// once a frame is enough
+		uint32_t actualFrame = _emu->GetFrameCount();
+		if(_hdAudioDevice->_frameMemoryRead != actualFrame) {
+			_hdAudioDevice->_frameMemoryRead = actualFrame;
+			_hdAudioDevice->PlayAdditionalBgmTrack_IfNeeded();
+			//_hdAudioDevice->PlayAdditionalSfx_IfNeeded();
+		}
+
+	}
+
+
+
 }
 
 void NesConsole::RunVsSubConsole()

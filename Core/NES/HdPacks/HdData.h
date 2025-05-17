@@ -9,6 +9,8 @@
 
 class BaseHdNesPack;
 
+
+
 struct HdTileKey
 {
 	static constexpr int32_t NoTile = -1;
@@ -469,6 +471,24 @@ struct BgmTrackInfo
 	uint32_t LoopPosition = 0;
 };
 
+/*-----------------------------------------------------------*/
+/* added by Gwenolo to manage additional musics and SFX from OGG */ 
+struct PlayAdditionalBgmAction
+{
+	vector<HdPackCondition*> Conditions;
+	int TrackId;
+	bool loop = true;
+};
+
+struct PlayAdditionalSfxAction
+{
+	vector<HdPackCondition*> Conditions;
+	int SfxId;
+	//string filename;
+};
+/*-----------------------------------------------------------*/
+
+
 struct HdPackData
 {
 private:
@@ -482,6 +502,13 @@ public:
 	vector<unique_ptr<HdPackBitmapInfo>> ImageFileData;
 	vector<unique_ptr<HdPackTileInfo>> Tiles;
 	vector<unique_ptr<HdPackCondition>> Conditions;
+
+	/*-------------Added by Gwenolo : v1 useless-------------------*/
+	vector<PlayAdditionalBgmAction> PlayAdditionalBgmActions;
+	vector<PlayAdditionalSfxAction> PlayAdditionalSfxActions;
+	bool _disable_8bits_Sound = false;
+   /*---------------------------------*/
+
 	vector<HdPackAdditionalSpriteInfo> AdditionalSprites;
 	vector<FallbackTileInfo> FallbackTiles;
 	unordered_set<uint32_t> WatchedMemoryAddresses;

@@ -24,6 +24,13 @@ void OggMixer::Reset(uint32_t sampleRate)
 	_paused = false;
 }
 
+
+bool OggMixer::GetOptions()
+{
+	bool loop = (_options & (int)OggPlaybackOptions::Loop) != 0;
+	return loop;
+}
+
 void OggMixer::SetPlaybackOptions(uint8_t options)
 {
 	_options = options;

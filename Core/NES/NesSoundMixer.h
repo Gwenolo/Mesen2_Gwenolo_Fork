@@ -17,6 +17,7 @@ class NesSoundMixer : public ISerializable
 public:
 	static constexpr uint32_t CycleLength = 10000;
 	static constexpr uint32_t BitsPerSample = 16;
+	void UpdateRates(bool forceUpdate);// switched to public by Gwenolo
 
 private:
 	static constexpr uint32_t MaxSampleRate = 96000;
@@ -55,7 +56,7 @@ private:
 
 	void ProcessVsDualSystemAudio();
 
-	void UpdateRates(bool forceUpdate);
+	//void UpdateRates(bool forceUpdate); --> switched to public by Gwenolo
 	
 public:
 	NesSoundMixer(NesConsole* console);

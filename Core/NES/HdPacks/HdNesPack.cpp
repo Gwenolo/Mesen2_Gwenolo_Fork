@@ -11,6 +11,8 @@
 #include "Utilities/FolderUtilities.h"
 #include "Utilities/PNGHelper.h"
 
+#include "NES/NesSoundMixer.h" //added by Gwenolo
+
 template<uint32_t scale>
 HdNesPack<scale>::HdNesPack(NesConsole* console, EmuSettings* settings, HdPackData* hdData)
 {
@@ -20,7 +22,28 @@ HdNesPack<scale>::HdNesPack(NesConsole* console, EmuSettings* settings, HdPackDa
 
 	InitializeFallbackTiles();
 	CleanupInvalidRules();
+
+	/* ---------added by Gwenolo ---------*/
+	if(hdData->_disable_8bits_Sound) {
+		disable_8bitsSound();
+	}
+	/*--------------------------*/
 }
+
+
+
+/* ---------added by Gwenolo ---------*/
+template<uint32_t scale>
+void HdNesPack<scale>::disable_8bitsSound()
+{   
+	 
+	for(int i = (int)AudioChannel::Square1; i <= (int)AudioChannel::DMC; i++) {
+		_console->GetNesConfig().ChannelVolumes[i] = 0;
+	}
+	_console->GetSoundMixer()->UpdateRates(true);
+		
+}
+/*-----------------------------------------*/
 
 template<uint32_t scale>
 HdNesPack<scale>::~HdNesPack()

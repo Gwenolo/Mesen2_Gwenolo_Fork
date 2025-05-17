@@ -13,7 +13,7 @@ private:
 	uint32_t _sampleRate = 0;
 	uint8_t _bgmVolume = 0;
 	uint8_t _sfxVolume = 0;
-	uint8_t _options = 0;
+	
 	bool _paused = false;
 
 public:
@@ -35,4 +35,10 @@ public:
 	int32_t GetBgmOffset();
 
 	void MixAudio(int16_t* out, uint32_t sampleCount, uint32_t sampleRate) override;
+
+	bool GetOptions();
+
+	//switched to public by gwenolo:
+	uint8_t _options = 0;
+
 };

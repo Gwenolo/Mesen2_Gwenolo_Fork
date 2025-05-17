@@ -12,6 +12,9 @@ public:
 	static bool LoadHdNesPack(string definitionFile, HdPackData &outData);
 	static bool LoadHdNesPack(VirtualFile &romFile, HdPackData &outData);
 
+
+
+
 private:
 	HdPackData* _data = nullptr;
 	bool _loadFromZip = false;
@@ -52,6 +55,14 @@ private:
 
 	//Audio
 	int ProcessSoundTrack(string albumString, string trackString, string filename);
+	
+
+	/*--------------------------------- Added by Gwenolo  ----------------------------------*/
+	/* added by Gwenolo */
+	void HdPackLoader::ProcessPlayConditionalBgmTag(vector<string>& tokens, vector<HdPackCondition*>& conditions);
+	void HdPackLoader::ProcessPlayConditionalSfxTag(vector<string>& tokens, vector<HdPackCondition*>& conditions);
+	/*-------------------------------------------------------------------*/
+
 	void ProcessBgmTag(vector<string> &tokens);
 	void ProcessSfxTag(vector<string> &tokens);
 

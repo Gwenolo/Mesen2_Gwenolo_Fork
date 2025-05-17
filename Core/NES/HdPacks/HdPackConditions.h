@@ -5,6 +5,9 @@
 #include "NES/NesConstants.h"
 #include "Utilities/HexUtilities.h"
 
+//Added by Gwenolo
+#include "Utilities/StringUtilities.h"
+
 struct HdPackBaseTileCondition : public HdPackCondition
 {
 	int32_t TileX = 0;
@@ -59,6 +62,9 @@ enum class HdPackConditionOperator
 	LowerThan = 3,
 	LowerThanOrEqual = 4,
 	GreaterThanOrEqual = 5,
+
+	// In operator added by Gwenolo
+	In = 6
 };
 
 struct HdPackBaseMemoryCondition : public HdPackCondition
@@ -68,6 +74,35 @@ struct HdPackBaseMemoryCondition : public HdPackCondition
 	HdPackConditionOperator Operator = {};
 	uint32_t OperandB = 0;
 	uint8_t Mask = 0;
+
+	//added by Gwenolo 
+	std::vector<uint8_t> OperandBList; 
+
+
+	void LogConditionMsgToFile( string msg1, string msg2)
+	{
+
+		std::ofstream logfile("D:\\Documents\\Mesen2\\HdPacks\\LegendofZelda_MESEN_Patch\\ConditionDebug.Log", std::ios_base::app);
+      
+
+		switch(Operator) {
+			case HdPackConditionOperator::Equal:     break;
+			case HdPackConditionOperator::NotEqual:  break;
+			case HdPackConditionOperator::GreaterThan:break;
+			case HdPackConditionOperator::LowerThan:  break;
+			case HdPackConditionOperator::LowerThanOrEqual: break;
+			case HdPackConditionOperator::GreaterThanOrEqual: break;
+
+				// Case 'In' operator added by Gwenolo
+			case HdPackConditionOperator::In: 
+				logfile << ToString() << "  MSG1:  " << msg1 << " - MSG2  " << msg2 << std::endl;
+				break;
+
+		}
+		logfile.flush();
+		logfile.close();
+	}
+
 
 	void Initialize(uint32_t operandA, HdPackConditionOperator op, uint32_t operandB, uint8_t mask)
 	{
@@ -94,9 +129,20 @@ struct HdPackBaseMemoryCondition : public HdPackCondition
 			case HdPackConditionOperator::LowerThan: out << "<"; break;
 			case HdPackConditionOperator::LowerThanOrEqual: out << "<="; break;
 			case HdPackConditionOperator::GreaterThanOrEqual: out << ">="; break;
+			
+			// Case 'In' operator added by Gwenolo
+			case HdPackConditionOperator::In: out << "In"; break;
+
 		}
 		out << ",";
-		out << HexUtilities::ToHex(OperandB);
+
+		// Case 'In' operator added by Gwenolo
+		if(Operator == HdPackConditionOperator::In) {
+			out << " OPERAND B LIST TO IMPLEMENT DISPLAY , vector Size : " << OperandBList.size();
+		}
+		else { 
+			out << HexUtilities::ToHex(OperandB); 
+		}
 		out << ",";
 		out << HexUtilities::ToHex(Mask);
 
@@ -245,16 +291,79 @@ struct HdPackMemoryCheckCondition : public HdPackBaseMemoryCondition
 			case HdPackConditionOperator::LowerThan: return a < b;
 			case HdPackConditionOperator::LowerThanOrEqual: return a <= b;
 			case HdPackConditionOperator::GreaterThanOrEqual: return a >= b;
+         
+			//Added by Gwenolo	 
+         // In operator only usable for MemoryCheckConstantCondition
+			case HdPackConditionOperator::In: { 
+				//LogConditionMsgToFile(" Methode: HdPackMemoryCheckCondition::InternalCheckCondition ", "X");
+				return a == b; 
+			}
+
 		}
 		return false;
 	}
 };
 
+/*-------------------------------------------------------------------------------------------------------------------------*/
 struct HdPackMemoryCheckConstantCondition : public HdPackBaseMemoryCondition
 {
 	HdPackConditionType GetConditionType() override { return HdPackConditionType::MemoryCheckConstant; }
 	HdPackMemoryCheckConstantCondition() { _useCache = true; }
 	string GetConditionName() override { return IsPpuCondition() ? "ppuMemoryCheckConstant" : "memoryCheckConstant"; }
+
+	//added by Gwenolo 
+	//std::vector<uint8_t> OperandBList; 
+
+	//surcharge added by Gwenolo (for In Operator implementation)
+	string ToString() override
+	{
+		stringstream out;
+		out << "<condition>" << Name << "," << GetConditionName() << ",";
+		out << HexUtilities::ToHex(OperandA & 0xFFFF) << ",";
+		switch(Operator) {
+			case HdPackConditionOperator::Equal: out << "=="; break;
+			case HdPackConditionOperator::NotEqual: out << "!="; break;
+			case HdPackConditionOperator::GreaterThan: out << ">"; break;
+			case HdPackConditionOperator::LowerThan: out << "<"; break;
+			case HdPackConditionOperator::LowerThanOrEqual: out << "<="; break;
+			case HdPackConditionOperator::GreaterThanOrEqual: out << ">="; break;
+
+				// Case 'In' operator added by Gwenolo
+			case HdPackConditionOperator::In: out << "In"; break;
+
+		}
+		out << ",";
+
+		// Case 'In' operator added by Gwenolo
+		if(Operator == HdPackConditionOperator::In) {
+			out << " HdPackMemoryCheckConstantCondition: OPERAND B LIST TO IMPLEMENT DISPLAY ";
+		} else {
+			out << HexUtilities::ToHex(OperandB);
+		}
+		out << ",";
+		out << HexUtilities::ToHex(Mask);
+
+		return out.str();
+	}
+
+
+	//added by Gwenolo
+	void InitializeForInOperator(uint32_t operandA, HdPackConditionOperator op, const std::string& operandBStr, uint8_t mask)
+	{
+		this->OperandA = operandA;
+		this->Operator = op;
+		this->Mask = mask;
+
+		OperandBList.clear();
+
+		std::vector<std::string> values = StringUtilities::Split(operandBStr, '|');
+		for(const auto& val : values) {
+			OperandBList.push_back(HexUtilities::FromHex(val));
+		}
+		
+	}
+	//end of surcharge added by Gwenolo
+	
 
 	bool InternalCheckCondition(int x, int y, HdPpuTileInfo* tile) override
 	{
@@ -268,11 +377,35 @@ struct HdPackMemoryCheckConstantCondition : public HdPackBaseMemoryCondition
 			case HdPackConditionOperator::LowerThan: return a < b;
 			case HdPackConditionOperator::LowerThanOrEqual: return a <= b;
 			case HdPackConditionOperator::GreaterThanOrEqual: return a >= b;
+			
+			//added by Gwenolo to manage the 'In' operator 
+			case HdPackConditionOperator::In:
+			{ 
+				//string msg2 = " Result = False";
+				bool result = false;
+						     
+				for(uint8_t b : OperandBList) {
+					if(a == b) {
+						result = true;
+						//msg2 = " Result = True" ;
+						return result;
+						break;
+					}
+
+				}
+				
+				return result;
+							
+
+			}		
+			
 		}
+		
 		return false;
 	}
 };
 
+/*-------------------------------------------------------------------------------------------------------------------------*/
 struct HdPackFrameRangeCondition : public HdPackCondition
 {
 	uint32_t OperandA = 0;
@@ -423,4 +556,9 @@ struct HdPackSpritePaletteCondition : public HdPackCondition
 	{
 		return tile && (tile->PaletteOffset == (0x10 + (paletteId << 2)));
 	}
+
+
+
 };
+
+

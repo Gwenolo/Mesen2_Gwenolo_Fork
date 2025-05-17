@@ -28,6 +28,14 @@ void* HdNesPpu::OnBeforeSendFrame()
 	HdScreenInfo* info = _info;
 	info->FrameNumber = _frameCount;
 	info->WatchedAddressValues.clear();
+
+	// called every frames
+	/*std::ofstream logfile("D:\\Documents\\Mesen2\\HdPacks\\LegendofZelda_MESEN_Patch\\HdNesPpu.txt", std::ios_base::app); // Ouvre en ajout
+	logfile << "[Frame " << _emu->GetFrameCount() << "] HdNesPpu::OnBeforeSendFrame : " << std::endl;
+	logfile.flush();
+	logfile.close();
+	*/
+
 	for(uint32_t address : _hdData->WatchedMemoryAddresses) {
 		if(address & HdPackBaseMemoryCondition::PpuMemoryMarker) {
 			if((address & 0x3FFF) >= 0x3F00) {
